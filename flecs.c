@@ -14490,12 +14490,12 @@ char* flecs_load_from_file(
     }
 
     /* Determine file size */
-    fseek(file, 0 , SEEK_END);
+    fseek(file, 0, SEEK_END);
     bytes = (int32_t)ftell(file);
     if (bytes == -1) {
         goto error;
     }
-    rewind(file);
+    fseek(file, 0, SEEK_SET);
 
     /* Load contents in memory */
     content = ecs_os_malloc(bytes + 1);
@@ -16648,12 +16648,33 @@ int flecs_uni_observer_init(
     if (ecs_id_is_tag(world, term->id)) {
         /* If id is a tag, downgrade OnSet/UnSet to OnAdd/OnRemove. */
         int32_t e, count = observer->event_count;
+        bool has_on_add = false;
+        bool has_on_remove = false;
+        for (e = 0; e < count; e ++) {
+            if (observer->events[e] == EcsOnAdd) {
+                has_on_add = true;
+            }
+            if (observer->events[e] == EcsOnRemove) {
+                has_on_remove = true;
+            }
+        }
+
         for (e = 0; e < count; e ++) {
             if (observer->events[e] == EcsOnSet) {
-                observer->events[e] = EcsOnAdd;
+                if (has_on_add) {
+                    /* Already registered */
+                    observer->events[e] = 0;
+                } else {
+                    observer->events[e] = EcsOnAdd;
+                }
             } else
             if (observer->events[e] == EcsUnSet) {
-                observer->events[e] = EcsOnRemove;
+                if (has_on_remove) {
+                    /* Already registered */
+                    observer->events[e] = 0;
+                } else {
+                    observer->events[e] = EcsOnRemove;
+                }
             }
         }
     }
